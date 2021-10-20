@@ -69,6 +69,18 @@ def test(dataloader, model, loss_fn, device):
     print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
 
 
+def save_model(model):
+    print('Saving PyTorch Model')
+    torch.save(obj=model.state_dict(), f='../SavedModel/tutorial_model.pth')
+    print("Saved PyTorch Model State to tutorial_model.pth")
+
+
+def load_model(filename: str):
+    model = NeuralNetwork() # 모델을 불러올 때는 같은 class 모델을 가져와야 함
+    model.load_state_dict(state_dict=torch.load(f=filename))
+    return model
+
+
 def main():
     BATCH_SIZE = 64
     LEARNING_RATE = 1e-3
@@ -105,6 +117,8 @@ def main():
         train(dataloader=train_dataloader, model=model, device=model.device, loss_fn=model.loss_fn, optimizer=model.optimizer)
         test(dataloader=train_dataloader, model=model, device=model.device, loss_fn=model.loss_fn)
     print('Done!')
+
+    save_model(model)
 
 
 if __name__ == '__main__':
