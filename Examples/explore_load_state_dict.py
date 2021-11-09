@@ -21,19 +21,20 @@ def example_copyStateDict(state_dict):
 
 
 def example_torch_load():
-    logger = logging.getLogger(name=__name__)
-    logger.setLevel(logging.INFO)
+    # logger = logging.getLogger(name=__name__)
+    # logger.setLevel(logging.INFO)
 
     trained_model = os.path.expanduser('~/.EasyOCR/model/craft_mlt_25k.pth')
     net = easyocr.craft.CRAFT()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    logger.info(f'Pytorch Device was set {device}')
+    print(f'Pytorch Device was set : {device.upper()}')
 
     loaded: collections.OrderedDict = torch.load(f=trained_model, map_location=device)
-    # print(type(loaded)) -> <class 'collections.OrderedDict'>
-    # print(loaded) -> 사전 학습된 각 layer의 w, b값이 출력
+    # print(type(loaded))  # -> <class 'collections.OrderedDict'>
+    # print(loaded)  # -> 사전 학습된 각 layer의 w, b값이 출력
     new_loaded = example_copyStateDict(state_dict=loaded)
     net.load_state_dict(state_dict=new_loaded)  # load_state_dict method부터 파악 시작하기
+    # print(net)  #  신경망 구조 확인
 
 
 if __name__ == '__main__':
