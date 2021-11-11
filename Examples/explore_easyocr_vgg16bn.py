@@ -3,6 +3,9 @@ import easyocr
 import numpy as np
 import cv2
 import torch.nn.functional as F
+import os
+import collections
+import matplotlib.pyplot as plt
 
 
 class double_conv(torch.nn.Module):
@@ -22,6 +25,40 @@ class double_conv(torch.nn.Module):
     def forward(self, x):
         x = self.conv(x)
         return x
+
+
+class conv_class(torch.nn.Module):
+    def __init__(self):
+        super(conv_class, self).__init__()
+        num_class = 2
+        self.conv_cls = torch.nn.Sequential(
+                    torch.nn.Conv2d(32, 32, kernel_size=(3, 3), padding=1), torch.nn.ReLU(inplace=True),
+                    torch.nn.Conv2d(32, 32, kernel_size=(3, 3), padding=1), torch.nn.ReLU(inplace=True),
+                    torch.nn.Conv2d(32, 16, kernel_size=(3, 3), padding=1), torch.nn.ReLU(inplace=True),
+                    torch.nn.Conv2d(16, 16, kernel_size=(1, 1)), torch.nn.ReLU(inplace=True),
+                    torch.nn.Conv2d(16, num_class, kernel_size=(1, 1)),
+        )
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.conv_cls.to(self.device)
+
+    def forward(self, x):
+        x = self.conv_cls(x)
+        return x
+
+
+def example_copyStateDict(state_dict):
+    # print(list(state_dict.keys()))  # -> ['module.basenet.slice1.0.weight', 'module.basenet.slice1.0.bias', ...]
+    # startswith('시작하는 문자', '시작 지점') : 특정 문자열 찾기
+    if list(state_dict.keys())[0].startswith("module"):
+        start_idx = 1
+    else:
+        start_idx = 0
+    new_state_dict = collections.OrderedDict()
+    for k, v in state_dict.items():
+        # key name : 'module.basenet.slice1.0.weight' -> 'basenet.slice1.0.weight'
+        name = ".".join(k.split(".")[start_idx:])
+        new_state_dict[name] = v
+    return new_state_dict
 
 
 # easyocr.craft.CRAFT() code comprehension
@@ -117,15 +154,62 @@ def main():
 
     print(source[4].size(), '\tsource[4].size()')  # torch.Size([1, 512, 28, 32])
     y = F.interpolate(input=trd_unet_out, size=source[4].size()[2:], mode='bilinear', align_corners=False)
-    y_out = torch.cat(tensors=[y, source[4]], dim=1)
-    feature = upconv4(y_out)
+    last_unet = torch.cat(tensors=[y, source[4]], dim=1)
+    feature = upconv4(last_unet)
     print(y.size(), '\ty.size()')
-    print(y_out.size(), '\ty_out.size()')
+    print(last_unet.size(), '\tlast_unet.size()')
     print(feature.size(), '\tfeature.size()')
     print('='*50)
 
-    y_out = y_out.permute(0, 2, 3, 1)  # shape : data num, height, width, channel
+    conv_cls = conv_class()
+    y_out = conv_cls(feature)
     print(y_out.size(), '\ty_out.size()')
+    y_out = y_out.permute(0, 2, 3, 1)  # shape : data num, height, width, channel
+    print(y_out.size(), '\ty_out.size() permuted')
+    print('='*50)
+
+    trained_model = os.path.expanduser('~/.EasyOCR/model/craft_mlt_25k.pth')
+    net = easyocr.craft.CRAFT()
+    loaded: collections.OrderedDict = torch.load(f=trained_model, map_location=device)
+    new_loaded = example_copyStateDict(state_dict=loaded)
+    net.load_state_dict(state_dict=new_loaded)
+    net.to(device)
+
+    print("Origin network's results -------------------------")
+    with torch.no_grad():
+        y_out, feature = net(x)
+        print(feature.size(), '\tfeature.size()')
+        print(y_out.size(), '\ty_out.size() permuted')
+
+    boxes_list, polys_list = [], []
+    for out in y_out:
+        # make score and link map
+        # 각 tensor값들을 cpu 메모리에 data를 올려서 cpu에서 연산이 가능하도록 만들고 type은 numpy다
+        score_text = out[:, :, 0].cpu().data.numpy()
+        score_link = out[:, :, 1].cpu().data.numpy()
+
+        # print(score_text.shape)  # shape : 112, 128
+        # print(score_link.shape)  # shape : 112, 128
+
+        # 이미지 임계처리
+        # https://opencv-python.readthedocs.io/en/latest/doc/09.imageThresholding/imageThresholding.html
+        ret, text_score = cv2.threshold(src=score_text, thresh=low_text, maxval=1, type=0)
+        ret, link_score = cv2.threshold(src=score_link, thresh=link_threshold, maxval=1, type=0)
+
+        plt.subplot(1, 2, 1)
+        plt.title('Text score')
+        plt.imshow(text_score)
+        plt.subplot(1, 2, 2)
+        plt.title('Link score')
+        plt.imshow(link_score)
+        plt.show()
+
+
+        # Post-processing
+        # boxes, polys, mapper = easyocr.craft_utils.getDetBoxes(
+        #     textmap=score_text, linkmap=score_link,
+        #     text_threshold=text_threshold, link_threshold=link_threshold,
+        #     low_text=low_text, poly=False, estimate_num_chars=estimate_num_chars)
 
 
 if __name__ == '__main__':
