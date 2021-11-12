@@ -33,8 +33,8 @@ def example_torch_load():
     # print(type(loaded))  # -> <class 'collections.OrderedDict'>
     # print(loaded)  # -> 사전 학습된 각 layer의 w, b값이 출력
     new_loaded = example_copyStateDict(state_dict=loaded)
-    net.load_state_dict(state_dict=new_loaded)  # load_state_dict method부터 파악 시작하기
-    # print(net)  #  신경망 구조 확인
+    net.load_state_dict(state_dict=new_loaded)
+    print(net)  #  신경망 구조 확인
 
 
 if __name__ == '__main__':

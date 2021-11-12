@@ -13,8 +13,9 @@ def test_net(canvas_size, mag_ratio, net, image, text_threshold, link_threshold,
 
     img_resized_list = []
     # resize
+    target_ratio = 0.
     for img in image_arrs:
-        img_resized, target_ratio, size_heatmap = easyocr.imgproc.resize_aspect_ratio(img, canvas_size,
+        img_resized, target_ratio, _ = easyocr.imgproc.resize_aspect_ratio(img, canvas_size,
                                                                       interpolation=cv2.INTER_LINEAR,
                                                                       mag_ratio=mag_ratio)
         img_resized_list.append(img_resized)
@@ -28,7 +29,8 @@ def test_net(canvas_size, mag_ratio, net, image, text_threshold, link_threshold,
     # forward pass
     with torch.no_grad():
         # feature 확인해보기
-        # U-net을 왜 사용하는지 파악 필요
+        # U-net 그림 참조
+        # https://towardsdatascience.com/neural-networks-intuitions-6-east-5892f85a097
         y, feature = net(x)
 
     boxes_list, polys_list = [], []
@@ -87,7 +89,7 @@ def example_torch_load():
     # print(loaded)  # -> 사전 학습된 각 layer의 w, b값이 출력
     new_loaded = example_copyStateDict(state_dict=loaded)
     net.load_state_dict(state_dict=new_loaded)  # load_state_dict method부터 파악 시작하기
-    # print(net)  #  신경망 구조 확인
+    print(net)  #  신경망 구조 확인
 
     # net : detector
     net = torch.nn.DataParallel(net).to(device)
