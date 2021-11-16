@@ -191,11 +191,12 @@ def main():
         # print(score_text.shape)  # shape : 112, 128
         # print(score_link.shape)  # shape : 112, 128
 
-        # 이미지 임계처리
+        # 이미지 임계처리 설명 참고 링크
         # https://opencv-python.readthedocs.io/en/latest/doc/09.imageThresholding/imageThresholding.html
         ret, text_score = cv2.threshold(src=score_text, thresh=low_text, maxval=1, type=0)
         ret, link_score = cv2.threshold(src=score_link, thresh=link_threshold, maxval=1, type=0)
 
+        # 결과물 참고 이미지 : ImageDatas/image1_model_output.jpg
         plt.subplot(1, 2, 1)
         plt.title('Text score')
         plt.imshow(text_score)
